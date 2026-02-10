@@ -60,8 +60,8 @@
     "typescript": "5.9.3"
   },
   "scripts": {
-    "build": "rollup -c",
-    "develop": "concurrently --kill-others \"npm run watch\" \"npm run serve\"",
+    "build": "rollup -c && node scripts/copy-models.cjs",
+    "develop": "node scripts/link-models.cjs && concurrently --kill-others \"npm run watch\" \"npm run serve\"",
     "lint": "eslint src rollup.config.mjs eslint.config.mjs",
     "lint:fix": "eslint src rollup.config.mjs eslint.config.mjs --fix",
     "publint": "publint",

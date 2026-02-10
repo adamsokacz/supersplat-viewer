@@ -69,6 +69,23 @@ To initialize a local development environment for SuperSplat Viewer, ensure you 
 
 4. Open your browser at http://localhost:3000.
 
+## Hosting with Models
+
+To host the viewer and share direct links to specific models:
+
+1. Add your splat files to the `models/` folder (`.ply`, `.sog`, `.meta.json`, `.lod-meta.json`)
+2. Run `npm run build`
+3. Deploy the `public/` folder to any static host (Vercel, Netlify, GitHub Pages, etc.)
+4. Share links in this format:
+
+   ```
+   https://your-domain.com/?content=./models/your-scene.ply
+   ```
+
+   Example: for a file at `models/room.ply`, the link is `https://your-domain.com/?content=./models/room.ply`
+
+Without the `?content=` parameter, visitors see an upload zone where they can drop their own files.
+
 ## Settings Schema
 
 The `settings.json` file has the following schema (defined in TypeScript and taken from the SuperSplat editor):

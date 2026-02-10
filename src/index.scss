@@ -41,6 +41,108 @@ button {
     display: none !important;
 }
 
+/* Upload drop zone */
+.upload-zone {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba($clr-bkg-darkest, 0.95);
+    pointer-events: auto;
+    cursor: pointer;
+    transition: background 0.2s;
+
+    &.drag-over {
+        background: rgba($clr-bkg-dark, 0.98);
+        #uploadZoneInner {
+            border-color: $clr-accent;
+            transform: scale(1.02);
+        }
+    }
+
+    #uploadZoneInner {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        padding: 48px 64px;
+        border: 2px dashed $clr-text-dark;
+        border-radius: 16px;
+        transition: border-color 0.2s, transform 0.2s;
+
+        svg {
+            color: $clr-text-dark;
+            opacity: 0.7;
+        }
+
+        #uploadZoneTitle {
+            font-size: 20px;
+            font-weight: 600;
+            color: $clr-text-light;
+        }
+
+        #uploadZoneHint, #uploadZoneFormats {
+            font-size: 14px;
+            color: $clr-text-dark;
+        }
+    }
+}
+
+/* Load error overlay */
+#loadError {
+    #loadErrorInner {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+        padding: 48px 64px;
+        max-width: 420px;
+        text-align: center;
+
+        #loadErrorTitle {
+            font-size: 20px;
+            font-weight: 600;
+            color: $clr-text-light;
+        }
+
+        #loadErrorHint {
+            font-size: 14px;
+            color: $clr-text-dark;
+            line-height: 1.5;
+        }
+
+        #loadErrorLink {
+            color: $clr-accent;
+            text-decoration: none;
+            font-size: 14px;
+
+            &:hover {
+                text-decoration: underline;
+            }
+        }
+
+        #loadErrorRetry {
+            margin-top: 8px;
+            padding: 12px 24px;
+            background: $clr-accent;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+
+            &:hover {
+                opacity: 0.9;
+            }
+        }
+    }
+}
+
 .spacer {
     flex-grow: 1;
 }

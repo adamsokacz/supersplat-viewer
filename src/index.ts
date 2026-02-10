@@ -20,15 +20,20 @@ import { version as appVersion } from '../package.json';
 
 const loadGsplat = async (app: AppBase, config: Config, progressCallback: (progress: number) => void) => {
     const { contents, contentUrl, unified, aa } = config;
-    const c = contents as unknown as ArrayBuffer;
-    const filename = new URL(contentUrl, location.href).pathname.split('/').pop();
-    const data = filename.toLowerCase() === 'meta.json' ? await (await contents).json() : undefined;
-    const asset = new Asset(filename, 'gsplat', { url: contentUrl, filename, contents: c }, data);
+    const resolved = await contents;
+    const c = resolved instanceof ArrayBuffer ? resolved : await (resolved as Response).arrayBuffer();
+    const filename = new URL(contentUrl, location.href).pathname.split('/').pop() || 'splat';
+    const data = filename.toLowerCase() === 'meta.json'
+        ? JSON.parse(new TextDecoder().decode(c))
+        : undefined;
+    const asset = new Asset(filename, 'gsplat', { url: contentUrl || '', filename, contents: c }, data);
 
     return new Promise<Entity>((resolve, reject) => {
         asset.on('load', () => {
             const entity = new Entity('gsplat');
-            entity.setLocalEulerAngles(0, 0, 180);
+            // SOG and LOD-meta are PlayCanvas format (correct orientation); PLY may need 180° flip
+            const rotZ = filename.toLowerCase().endsWith('.sog') || filename.toLowerCase().endsWith('lod-meta.json') ? 0 : 180;
+            entity.setLocalEulerAngles(0, 0, rotZ);
             entity.addComponent('gsplat', {
                 unified: unified || filename.toLowerCase().endsWith('lod-meta.json'),
                 asset
@@ -84,7 +89,7 @@ const loadSkybox = (app: AppBase, url: string) => {
     });
 };
 
-const main = (app: AppBase, camera: Entity, settingsJson: any, config: Config) => {
+const main = async (app: AppBase, camera: Entity, settingsJson: any, config: Config) => {
     const events = new EventHandler();
 
     const state = observe(events, {
@@ -156,7 +161,12 @@ const main = (app: AppBase, camera: Entity, settingsJson: any, config: Config) =
     }
 
     // Create the viewer
-    return new Viewer(global, gsplatLoad, skyboxLoad);
+    const viewer = new Viewer(global, gsplatLoad, skyboxLoad);
+
+    // Await load so failures propagate to caller
+    await gsplatLoad;
+
+    return viewer;
 };
 
 console.log(`SuperSplat Viewer v${appVersion} | Engine v${engineVersion} (${engineRevision})`);

@@ -11,7 +11,7 @@ type Config = {
     poster?: HTMLImageElement;
     skyboxUrl?: string;
     contentUrl?: string;
-    contents?: Promise<Response>;
+    contents?: Promise<Response | ArrayBuffer>;
 
     noui: boolean;
     noanim: boolean;

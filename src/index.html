@@ -14,28 +14,27 @@
             };
 
             const url = new URL(location.href);
-
             const posterUrl = url.searchParams.get('poster');
             const skyboxUrl = url.searchParams.get('skybox');
             const settingsUrl = url.searchParams.has('settings') ? url.searchParams.get('settings') : './settings.json';
-            const contentUrl = url.searchParams.has('content') ? url.searchParams.get('content') : './scene.compressed.ply';
-
-            const sseConfig = {
-                poster: posterUrl && createImage(posterUrl),
-                skyboxUrl,
-                contentUrl,
-                contents: fetch(contentUrl),
-                noui: url.searchParams.has('noui'),
-                noanim: url.searchParams.has('noanim'),
-                ministats: url.searchParams.has('ministats'),
-                colorize: url.searchParams.has('colorize'),
-                unified: url.searchParams.has('unified'),
-                aa: url.searchParams.has('aa')
-            };
+            const hasContentParam = url.searchParams.has('content');
+            const contentUrl = hasContentParam ? url.searchParams.get('content') : null;
 
             window.sse = {
-                config: sseConfig,
-                settings: fetch(settingsUrl).then(response => response.json())
+                contentUrl: hasContentParam ? contentUrl : null,
+                settings: fetch(settingsUrl).then(response => response.json()),
+                getConfig: (contents, contentUrl) => ({
+                    poster: posterUrl && createImage(posterUrl),
+                    skyboxUrl,
+                    contentUrl,
+                    contents,
+                    noui: url.searchParams.has('noui'),
+                    noanim: url.searchParams.has('noanim'),
+                    ministats: url.searchParams.has('ministats'),
+                    colorize: url.searchParams.has('colorize'),
+                    unified: url.searchParams.has('unified'),
+                    aa: url.searchParams.has('aa')
+                })
             };
         </script>
     </head>
@@ -57,6 +56,29 @@
         </pc-app>
 
         <div id="ui">
+            <!-- Load error overlay -->
+            <div id="loadError" class="upload-zone hidden">
+                <div id="loadErrorInner">
+                    <p id="loadErrorTitle">Failed to load splat</p>
+                    <p id="loadErrorHint">This may be a mesh PLY (vertices + faces), not a 3D Gaussian Splat file. The viewer needs files with properties like scale_0, rot_0, f_dc_0 from Gaussian Splatting captures.</p>
+                    <a id="loadErrorLink" href="https://superspl.at/" target="_blank" rel="noopener">Get sample files at SuperSplat →</a>
+                    <button id="loadErrorRetry">Try another file</button>
+                </div>
+            </div>
+            <!-- Upload drop zone (shown when no content URL) -->
+            <div id="uploadZone" class="upload-zone hidden">
+                <div id="uploadZoneInner">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="17 8 12 3 7 8"/>
+                        <line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                    <p id="uploadZoneTitle">Drop a 3D Gaussian Splat file</p>
+                    <p id="uploadZoneHint">or click to browse</p>
+                    <p id="uploadZoneFormats">3DGS .ply or .sog only — not mesh PLY (vertices+faces)</p>
+                    <input type="file" id="fileInput" accept=".ply,.sog,.json" style="display:none">
+                </div>
+            </div>
             <div id="poster"></div>
 
             <!-- SuperSplat Branding -->
@@ -347,28 +369,104 @@
         <script type="module">
             import { main } from './index.js';
 
-            const { config, settings } = window.sse;
-            const { poster } = config;
+            const { getConfig, settings } = window.sse;
 
-            // Show the poster image
-            if (poster) {
-                const element = document.getElementById('poster');
-                element.style.setProperty('--poster-url', `url(${poster.src})`);
-                element.style.display = 'block';
-                element.style.filter = 'blur(40px)';
+            const runViewer = async (config) => {
+                const { poster } = config;
 
-                // hide the canvas
-                document.documentElement.style.setProperty('--canvas-opacity', '0');
-            }
+                if (poster) {
+                    const element = document.getElementById('poster');
+                    element.style.setProperty('--poster-url', `url(${poster.src})`);
+                    element.style.display = 'block';
+                    element.style.filter = 'blur(40px)';
+                    document.documentElement.style.setProperty('--canvas-opacity', '0');
+                }
 
-            document.addEventListener('DOMContentLoaded', async () => {
                 const [appElement, cameraElement, settingsJson] = await Promise.all([
                     document.querySelector('pc-app').ready(),
                     document.querySelector('pc-entity[name="camera"]').ready(),
                     settings
                 ]);
 
-                const viewer = await main(appElement.app, cameraElement.entity, settingsJson, config);
+                try {
+                    return await main(appElement.app, cameraElement.entity, settingsJson, config);
+                } catch (err) {
+                    showLoadError(err);
+                    throw err;
+                }
+            };
+
+            const showUploadZone = () => {
+                const zone = document.getElementById('uploadZone');
+                zone.classList.remove('hidden');
+            };
+
+            const hideUploadZone = () => {
+                document.getElementById('uploadZone').classList.add('hidden');
+            };
+
+            const showLoadError = (err) => {
+                const el = document.getElementById('loadError');
+                document.getElementById('loadErrorTitle').textContent = err?.message || 'Failed to load splat';
+                el.classList.remove('hidden');
+            };
+
+            const hideLoadError = () => {
+                document.getElementById('loadError').classList.add('hidden');
+            };
+
+            const handleFile = async (file) => {
+                const validExt = /\.(ply|sog|json)$/i.test(file.name);
+                if (!validExt) {
+                    document.getElementById('uploadZoneTitle').textContent = 'Unsupported format';
+                    document.getElementById('uploadZoneHint').textContent = 'Use .ply, .sog, or .json files';
+                    return;
+                }
+                hideUploadZone();
+                hideLoadError();
+                try {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const config = getConfig(Promise.resolve(arrayBuffer), file.name);
+                    await runViewer(config);
+                } catch (e) {
+                    showLoadError(e);
+                }
+            };
+
+            document.addEventListener('DOMContentLoaded', async () => {
+                const { contentUrl } = window.sse;
+
+                document.getElementById('loadErrorRetry').addEventListener('click', () => {
+                    hideLoadError();
+                    showUploadZone();
+                });
+
+                if (contentUrl) {
+                    try {
+                        const config = getConfig(fetch(contentUrl), contentUrl);
+                        await runViewer(config);
+                    } catch (e) {
+                        showLoadError(e);
+                    }
+                } else {
+                    showUploadZone();
+                    const zone = document.getElementById('uploadZone');
+                    const fileInput = document.getElementById('fileInput');
+
+                    zone.addEventListener('click', () => fileInput.click());
+                    zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('drag-over'); });
+                    zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+                    zone.addEventListener('drop', (e) => {
+                        e.preventDefault();
+                        zone.classList.remove('drag-over');
+                        const file = e.dataTransfer?.files?.[0];
+                        if (file) handleFile(file);
+                    });
+                    fileInput.addEventListener('change', () => {
+                        const file = fileInput.files?.[0];
+                        if (file) handleFile(file);
+                    });
+                }
             });
         </script>
     </body>
